@@ -34,7 +34,7 @@
 	},
 	"crouch_button": {
 		"x": 74,
-		"y": 644,
+		"y": 585,
 		"contact": 4,
 		"default_duration": 0.1
 	},

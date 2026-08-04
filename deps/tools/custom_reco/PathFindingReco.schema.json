@@ -15,7 +15,7 @@
 		"properties": {
 			"custom_recognition_param": {
 				"$ref": "#/definitions/PathFindingRecoParam",
-				"description": "PathFindingReco 自动寻路识别器参数\n\n功能：\n1. 识别游戏画面中的目标图标（模板匹配）\n2. 提取目标图标下方的距离信息（OCR）\n3. 计算目标相对于屏幕中心的方向\n4. 选择最优目标（支持插件式选择器）\n5. 评估运动状态（approaching / arrived / stuck）\n\n返回值格式（兼容 IfElseAction）：\n- hit=True, hit_node=\"if\": 识别到目标，detail 包含目标信息、方向和运动状态\n- hit=False, hit_node=\"else\": 未识别到目标\n\ndetail 字段：\n- hit_node: \"if\" 或 \"else\"，用于 IfElseAction 分支\n- target: 目标信息\n  - template: 命中的模板名\n  - center: 目标中心 [x, y]\n  - bbox: 目标边界 [x, y, w, h]\n  - score: 匹配分数\n  - distance: 距离值（可选）\n- direction: 移动方向，可选值：forward / backward / left / right / centered\n  - centered 表示目标已在屏幕中心死区内，无需移动\n- state: 运动状态，可选值：approaching / arrived / stuck\n  - approaching: 正在接近目标\n  - arrived: 距离 ≤ arrival_distance，判定已到达\n  - stuck: 连续 stuck_threshold 帧距离/中心几乎无变化，判定卡住\n\n示例：\n{\n    \"expected_templates\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"roi\": [0, 0, 1280, 720],\n    \"threshold\": 0.8,\n    \"selector_type\": \"priority\",\n    \"selector_priority\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"distance_pattern\": \"(\\\\d+)米\",\n    \"distance_offset\": [10, 10, 20, 20],\n    \"dead_zone\": 50\n}"
+				"description": "PathFindingReco 自动寻路识别器参数\n\n功能：\n1. 识别游戏画面中的目标图标（模板匹配）\n2. 提取目标图标下方的距离信息（OCR）\n3. 计算目标相对于屏幕中心的方向\n4. 选择最优目标（支持插件式选择器）\n5. 评估运动状态（approaching / arrived / stuck）\n6. 目标锁定/追踪/解锁，保证选择连贯性\n7. 距离缺失时计算转向坐标（turn_start / turn_end）\n\n返回值格式（兼容 IfElseAction）：\n- hit=True, hit_node=\"if\": 识别到目标，detail 包含目标信息、方向、运动状态、lock_id 和转向坐标\n- hit=False, hit_node=\"else\": 未识别到目标\n\ndetail 字段：\n- hit_node: \"if\" 或 \"else\"，用于 IfElseAction 分支\n- target: 目标信息\n  - template: 命中的模板名\n  - center: 目标中心 [x, y]\n  - bbox: 目标边界 [x, y, w, h]\n  - score: 匹配分数\n  - distance: 距离值（可选）\n- direction: 移动方向，可选值：forward / backward / left / right / centered\n  - centered 表示目标已在屏幕中心死区内，无需移动\n- state: 运动状态，可选值：approaching / arrived / stuck\n  - approaching: 正在接近目标\n  - arrived: 距离 ≤ arrival_distance，判定已到达\n  - stuck: 连续 stuck_threshold 帧距离/中心几乎无变化，判定卡住\n- lock_id: 当前锁定目标的唯一标识，用于 PathFinderAction 的 once_per_target 闪避\n- turn_start / turn_end: 转向滑动起止坐标 [x, y]，仅在 enable_turning=true 且距离缺失时返回\n\n示例：\n{\n    \"expected_templates\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"roi\": [0, 0, 1280, 720],\n    \"threshold\": 0.8,\n    \"selector_type\": \"priority\",\n    \"selector_priority\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"distance_pattern\": \"(\\\\d+)米\",\n    \"distance_offset\": [10, 10, 20, 20],\n    \"dead_zone\": 50\n}"
 			}
 		}
 	},
@@ -28,7 +28,7 @@
 					"items": {
 						"type": "string"
 					},
-					"description": "期望匹配的模板列表（必填）\n\n模板文件位于 assets/resource/image 目录下\n示例：[\"quest_icon.png\", \"shop_icon.png\"]"
+					"description": "期望匹配的模板列表（必填）\n\n模板文件位于 assets/resource/image 目录下\n支持单张图片路径或文件夹路径；文件夹内所有图片等效为同一个模板，选择器和优先级均按文件夹名处理\n示例：[\"quest_icon.png\", \"icons/shop\"]"
 				},
 				"roi": {
 					"type": "array",
@@ -91,12 +91,12 @@
 					"minItems": 4,
 					"maxItems": 4,
 					"default": [
-						10,
-						10,
-						20,
-						20
+						-26,
+						-30,
+						47,
+						57
 					],
-					"description": "距离 OCR 区域偏移 [left, top, right, bottom]，默认 [10, 10, 20, 20]\n\n基于目标 bbox 向外扩展得到 OCR 识别区域"
+					"description": "距离 OCR 区域偏移 [x, y, w, h]，默认 [-26, -30, 47, 57]\n\n最终 ROI = [box.x + x, box.y + y, box.w + w, box.h + h]"
 				},
 				"distance_threshold": {
 					"type": "number",
@@ -104,6 +104,55 @@
 					"minimum": 0,
 					"maximum": 1,
 					"description": "OCR 置信度阈值，默认 0.3"
+				},
+				"target_lock_timeout": {
+					"type": "integer",
+					"default": 3,
+					"minimum": 1,
+					"description": "目标连续丢失多少帧后解锁，默认 3"
+				},
+				"target_lock_center_tolerance": {
+					"type": "integer",
+					"default": 100,
+					"minimum": 0,
+					"description": "锁定目标跨帧匹配中心容差（像素），默认 100"
+				},
+				"target_lock_score_threshold": {
+					"type": "number",
+					"default": 0.75,
+					"minimum": 0,
+					"maximum": 1,
+					"description": "锁定目标跨帧匹配最低置信度，默认 0.75"
+				},
+				"enable_turning": {
+					"type": "boolean",
+					"default": true,
+					"description": "是否计算并返回转向坐标，默认 true\n\nfalse 时即使目标距离缺失也不返回 turn_start/turn_end"
+				},
+				"max_turn_attempts": {
+					"type": "integer",
+					"default": 3,
+					"minimum": 0,
+					"description": "连续转向后仍未识别到距离，则停止转向，默认 3\n\n第 max_turn_attempts + 1 帧起直接移动"
+				},
+				"min_turn_distance": {
+					"type": "integer",
+					"default": 50,
+					"minimum": 0,
+					"description": "最短转向滑动距离（像素），默认 50"
+				},
+				"max_turn_distance": {
+					"type": "integer",
+					"default": 400,
+					"minimum": 0,
+					"description": "最长转向滑动距离（像素），默认 400"
+				},
+				"distance_missing_turn_scale": {
+					"type": "number",
+					"default": 0.5,
+					"minimum": 0,
+					"maximum": 1,
+					"description": "连续未识别到距离时转向滑动距离衰减系数，默认 0.5\n\n第 2 次起的滑动距离 = 前一次 × 此系数"
 				},
 				"dead_zone": {
 					"type": "integer",
@@ -134,6 +183,23 @@
 					"default": 10,
 					"minimum": 0,
 					"description": "卡住中心偏移容差（像素），默认 10\n\n无距离信息时，相邻两帧目标中心偏移 ≤ 此值时视为无进展"
+				},
+				"enable_locked_fast_path": {
+					"type": "boolean",
+					"default": true,
+					"description": "是否启用锁定态快速通道，默认 true\n\n开启后，已锁定目标的下一帧识别会基于上一帧 bbox 缩到小 ROI，显著提升识别速度；丢失或未锁定时回退全 ROI"
+				},
+				"lock_roi_padding": {
+					"type": "integer",
+					"default": 200,
+					"minimum": 0,
+					"description": "锁定态 ROI 相对上一帧 bbox 的扩展像素（单边），默认 200\n\n最终 ROI 边长 ≈ bbox + 2 × padding"
+				},
+				"fast_path_max_turn_padding": {
+					"type": "integer",
+					"default": 400,
+					"minimum": 0,
+					"description": "距离缺失时快速通道 ROI 的额外扩展（像素），默认 400\n\n距离为空时 padding += 此值，确保转向后目标不会移出视野"
 				}
 			},
 			"required": [

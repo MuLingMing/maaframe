@@ -20,13 +20,83 @@
 			"param": {
 				"custom_action": "PathFinderAction",
 				"custom_action_param": {
-					"move_duration": 800
+					"move_duration": 800,
+					"enable_turning": true
 				}
 			}
 		},
 		"next": [
 			"AutoPathFinding"
 		]
+	},
+	"AutoPathFinding_Full": {
+		"recognition": {
+			"type": "Custom",
+			"param": {
+				"custom_recognition": "PathFindingReco",
+				"custom_recognition_param": {
+					"expected_templates": [
+						"副本/目标点",
+						"副本/NPC"
+					],
+					"selector_type": "composite",
+					"selector_priority": [
+						"副本/目标点",
+						"副本/NPC"
+					],
+					"enable_turning": true,
+					"max_turn_attempts": 3
+				}
+			}
+		},
+		"action": {
+			"type": "Custom",
+			"param": {
+				"custom_action": "PathFinderAction",
+				"custom_action_param": {
+					"move_duration": 800,
+					"move_duration_far": 1500,
+					"move_duration_near": 300,
+					"distance_far": 200,
+					"distance_near": 50,
+					"max_move_time": 5000,
+					"dodge_at_start": "once_per_target",
+					"dodge_direction": "forward",
+					"enable_turning": true
+				}
+			}
+		},
+		"next": [
+			"AutoPathFinding_Full"
+		]
+	},
+	"AutoPathFinding_IfElse": {
+		"recognition": {
+			"type": "Custom",
+			"param": {
+				"custom_recognition": "PathFindingReco",
+				"custom_recognition_param": {
+					"expected_templates": [
+						"副本/目标点"
+					],
+					"selector_type": "priority"
+				}
+			}
+		},
+		"action": {
+			"type": "Custom",
+			"param": {
+				"custom_action": "IfElseAction",
+				"custom_action_param": {
+					"if": [
+						"PathFinderAction"
+					],
+					"else": [
+						"TaskComplete"
+					]
+				}
+			}
+		}
 	},
 	"test_OperationRecordAction_move": {
 		"action": {
