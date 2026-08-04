@@ -28,9 +28,14 @@ class PriorityTargetSelector(TargetSelector):
         if not targets:
             return None
 
+        # 同一模板可能有多候选（多尺度、相似位置），按 score 取最高。
         for ptype in self.priority:
-            for t in targets:
-                if t.template == ptype:
-                    return t
+            best = max(
+                (t for t in targets if t.template == ptype),
+                key=lambda t: t.score,
+                default=None,
+            )
+            if best is not None:
+                return best
 
-        return targets[0]
+        return max(targets, key=lambda t: t.score)
