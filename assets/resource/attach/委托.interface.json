@@ -26,9 +26,7 @@
 			"description": "角色突破本，探险/无尽。",
 			"option": [
 				"角色突破等级",
-				"通用设置",
-				"波次选择",
-				"使用倍率书的波次"
+				"通用设置"
 			],
 			"pipeline_override": {
 				"任务参数配置": {
@@ -60,9 +58,7 @@
 			"description": "武器突破本，调停。",
 			"option": [
 				"武器突破等级",
-				"通用设置",
-				"波次选择",
-				"使用倍率书的波次"
+				"通用设置"
 			],
 			"pipeline_override": {
 				"任务参数配置": {
@@ -110,9 +106,7 @@
 			"description": "皎皎信物本，扼守/无尽。仅支持50级副本。",
 			"option": [
 				"皎皎信物等级",
-				"通用设置",
-				"波次选择",
-				"使用倍率书的波次"
+				"通用设置"
 			],
 			"pipeline_override": {
 				"任务参数配置": {
@@ -254,18 +248,7 @@
 						"委托等级识别": {
 							"expected": "50",
 							"next": [
-								"皎皎信物50扼守"
-							]
-						}
-					}
-				},
-				{
-					"name": "70",
-					"pipeline_override": {
-						"委托等级识别": {
-							"expected": "70",
-							"next": [
-								"皎皎信物70扼守"
+								"扼守通用"
 							]
 						}
 					}
@@ -276,48 +259,12 @@
 						"委托等级识别": {
 							"expected": "80",
 							"next": [
-								"皎皎信物80扼守"
+								"扼守通用"
 							]
 						}
 					}
 				}
 			]
-		},
-		"波次选择": {
-			"type": "input",
-			"inputs": [
-				{
-					"name": "ocr_expected",
-					"label": "波次选择",
-					"description": "输入每次委托最大波次数，默认为99。",
-					"pipeline_type": "string",
-					"default": "99"
-				}
-			],
-			"pipeline_override": {
-				"波次选择": {
-					"expected": "{ocr_expected}"
-				}
-			}
-		},
-		"使用倍率书的波次": {
-			"type": "input",
-			"inputs": [
-				{
-					"name": "target_count",
-					"label": "倍率波次",
-					"description": "输入倍率书的波次，默认为0，即不使用倍率书。\n选择指定波次使用倍率书时建议手动关闭自动波次。",
-					"pipeline_type": "int",
-					"default": "0"
-				}
-			],
-			"pipeline_override": {
-				"无尽波次选择倍率书或密函": {
-					"attach": {
-						"target_count": "{target_count}"
-					}
-				}
-			}
 		}
 	}
 }

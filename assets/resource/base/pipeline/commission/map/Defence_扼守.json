@@ -1,20 +1,39 @@
 {
-    //波次扼守
-    "扼守": {},
-    //密函
-    //密函40扼守四张地图，电梯左中右、平台
-    "密函40扼守-跑图": {
+    //扼守通用，合并为一个节点
+    "扼守通用": {
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "expected": [
+                    "扼守"
+                ],
+                "roi": [
+                    0,
+                    0,
+                    350,
+                    650
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]委托完成次数",
+            "[JumpBack]扼守通用跑图",
+            "[JumpBack]倍率选择0加成",
+            "[JumpBack]确认选择"
+        ]
+    },
+    "扼守通用跑图": {
         "recognition": {
             "type": "Custom",
             "param": {
                 "custom_recognition": "IfElseReco",
                 "custom_recognition_param": {
                     "entry": "探险扼守未抵达目的地",
-                    "if": "密函40扼守-平台跑图",
+                    "if": "夜航手册70扼守-直跑48m跑图",
                     "elif": [
-                        "密函40扼守-电梯左跑图",
-                        "密函40扼守-电梯中跑图",
-                        "密函40扼守-电梯右跑图"
+                        "皎皎信物50扼守-直跑70m跑图",
+                        "皎皎信物80扼守-直跑50/51m跑图",
+                        "夜航手册75扼守-80m跑图"
                     ],
                     "else": true
                 }
@@ -25,13 +44,13 @@
             "param": {
                 "custom_action": "IfElseAction",
                 "custom_action_param": {
-                    "if": "密函40扼守-平台跑图",
+                    "if": "夜航手册70扼守-直跑48m跑图",
                     "elif": [
-                        "密函40扼守-电梯左跑图",
-                        "密函40扼守-电梯中跑图",
-                        "密函40扼守-电梯右跑图"
+                        "皎皎信物50扼守-直跑70m跑图",
+                        "皎皎信物80扼守-直跑50/51m跑图",
+                        "夜航手册75扼守-80m跑图"
                     ],
-                    "else": "局内放弃委托"
+                    "else": "局内复位"
                 }
             }
         },
@@ -41,362 +60,6 @@
             "[JumpBack]挂机战斗无复位",
             "[JumpBack]密函报酬选择"
         ]
-    },
-    //电梯左跑图，复位后174m，同扼守70级（复位后166m）
-    "密函40扼守-电梯左跑图": {
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "template": "副本/目标点",
-                "green_mask": true,
-                "roi": [
-                    397,
-                    457,
-                    70,
-                    80
-                ]
-            }
-        },
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "OperationRecordAction",
-                "custom_action_param": {
-                    "operations": [
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "forward",
-                                "duration": 1.2,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        },
-                        {
-                            "action": "wait",
-                            "params": {
-                                "duration": 7.5
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "forward",
-                                "duration": 15,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    },
-                                    {
-                                        "action": "move",
-                                        "params": {
-                                            "direction": "left",
-                                            "duration": 1.2
-                                        },
-                                        "at": 0.9
-                                    },
-                                    {
-                                        "action": "move",
-                                        "params": {
-                                            "direction": "right",
-                                            "duration": 1.2
-                                        },
-                                        "at": 6
-                                    },
-                                    {
-                                        "action": "move",
-                                        "params": {
-                                            "direction": "right",
-                                            "duration": 1.2
-                                        },
-                                        "at": 10.5
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    },
-    //电梯中跑图，同扼守70级
-    "密函40扼守-电梯中跑图": {
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "template": "副本/目标点",
-                "green_mask": true,
-                "roi": [
-                    622,
-                    487,
-                    70,
-                    80
-                ]
-            }
-        },
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "OperationRecordAction",
-                "custom_action_param": {
-                    "operations": [
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "forward",
-                                "duration": 1.2,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        },
-                        {
-                            "action": "wait",
-                            "params": {
-                                "duration": 7.5
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "right",
-                                "duration": 7.8,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    },
-                                    {
-                                        "action": "move",
-                                        "params": {
-                                            "direction": "backward",
-                                            "duration": 0.9
-                                        },
-                                        "at": 0.78
-                                    },
-                                    {
-                                        "action": "move",
-                                        "params": {
-                                            "direction": "forward",
-                                            "duration": 1.2
-                                        },
-                                        "at": 2.7
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    },
-    //电梯右跑图，同扼守70级
-    "密函40扼守-电梯右跑图": {
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "template": "副本/目标点",
-                "green_mask": true,
-                "roi": [
-                    830,
-                    455,
-                    70,
-                    80
-                ]
-            }
-        },
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "OperationRecordAction",
-                "custom_action_param": {
-                    "operations": [
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "forward",
-                                "duration": 1.2,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        },
-                        {
-                            "action": "wait",
-                            "params": {
-                                "duration": 7.5
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "right",
-                                "duration": 1.23,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "backward",
-                                "duration": 6.9,
-                                "overlays": [
-                                    {
-                                        "action": "jump",
-                                        "at": 1.2
-                                    },
-                                    {
-                                        "action": "jump",
-                                        "at": 1.5
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "left",
-                                "duration": 3
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "backward",
-                                "duration": 4.53
-                            }
-                        },
-                        {
-                            "action": "run_node",
-                            "params": {
-                                "node": "局内复位"
-                            }
-                        }
-                    ]
-                }
-            }
-        }
-    },
-    //平台跑图
-    "密函40扼守-平台跑图": {
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "template": "副本/目标点",
-                "green_mask": true,
-                "roi": [
-                    233,
-                    360,
-                    70,
-                    80
-                ]
-            }
-        },
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "OperationRecordAction",
-                "custom_action_param": {
-                    "operations": [
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "left",
-                                "duration": 2.01,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    },
-                                    {
-                                        "action": "jump",
-                                        "at": 1.02
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "wait",
-                            "params": {
-                                "duration": 2.1
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "forward",
-                                "duration": 5.1,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "action": "move",
-                            "params": {
-                                "direction": "left",
-                                "duration": 17.7,
-                                "overlays": [
-                                    {
-                                        "action": "dodge",
-                                        "at": 0.51
-                                    }
-                                ]
-                            }
-                        }
-                    ]
-                }
-            }
-        }
     },
     //皎皎币
     //50级
@@ -424,16 +87,36 @@
     },
     "皎皎信物50扼守-直跑70m跑图": {
         "recognition": {
-            "type": "OCR",
+            "type": "And",
             "param": {
-                "expected": [
-                    "前往目标点"
-                ],
-                "roi": [
-                    0,
-                    0,
-                    350,
-                    500
+                "all_of": [
+                    {
+                        "sub_name": "皎皎信物50扼守-70m跑图目标点",
+                        "recognition": {
+                            "type": "TemplateMatch",
+                            "param": {
+                                "template": "副本/目标点",
+                                "green_mask": true
+                            }
+                        }
+                    },
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "expected": [
+                                    "70"
+                                ],
+                                "roi": "皎皎信物50扼守-70m跑图目标点",
+                                "roi_offset": [
+                                    -26,
+                                    -30,
+                                    47,
+                                    57
+                                ]
+                            }
+                        }
+                    }
                 ]
             }
         },
@@ -474,6 +157,261 @@
             "[JumpBack]挂机战斗无复位"
         ]
     },
+    //皎皎币、夜航手册通用扼守
+    "皎皎信物80扼守-直跑50/51m跑图": {
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "sub_name": "皎皎信物80扼守-50/51m跑图目标点",
+                        "recognition": {
+                            "type": "TemplateMatch",
+                            "param": {
+                                "template": "副本/目标点",
+                                "green_mask": true
+                            }
+                        }
+                    },
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "expected": [
+                                    "50",
+                                    "51"
+                                ],
+                                "roi": "皎皎信物80扼守-50/51m跑图目标点",
+                                "roi_offset": [
+                                    -26,
+                                    -30,
+                                    47,
+                                    57
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        //平台到达目标点
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 1.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 5.5,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.5
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "loop_count": 1
+                }
+            }
+        },
+        "next": [
+            "退出委托仅识别",
+            "[JumpBack]无尽行动抉择",
+            "[JumpBack]挂机战斗无复位"
+        ]
+    },
+    //契约者
+    "夜航手册70扼守-直跑48m跑图": {
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "sub_name": "夜航手册70扼守-48m跑图目标点",
+                        "recognition": {
+                            "type": "TemplateMatch",
+                            "param": {
+                                "template": "副本/目标点",
+                                "green_mask": true
+                            }
+                        }
+                    },
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "expected": [
+                                    "48"
+                                ],
+                                "roi": "夜航手册70扼守-48m跑图目标点",
+                                "roi_offset": [
+                                    -26,
+                                    -30,
+                                    47,
+                                    57
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        //平台到达目标点
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 1.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 5.3,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.5
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "loop_count": 1
+                }
+            }
+        },
+        "next": [
+            "退出委托仅识别",
+            "[JumpBack]无尽行动抉择",
+            "[JumpBack]挂机战斗无复位"
+        ]
+    },
+    //风羽翼背水、雷羽翼昂扬
+    "夜航手册75扼守-80m跑图": {
+        //向前4s，向左1s，向前3.5s，向左1s
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "sub_name": "夜航手册75扼守-80m跑图目标点",
+                        "recognition": {
+                            "type": "TemplateMatch",
+                            "param": {
+                                "template": "副本/目标点",
+                                "green_mask": true
+                            }
+                        }
+                    },
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "expected": [
+                                    "80"
+                                ],
+                                "roi": "夜航手册75扼守-80m跑图目标点",
+                                "roi_offset": [
+                                    -26,
+                                    -30,
+                                    47,
+                                    57
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        //平台到达目标点
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 1.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 4.0,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.5
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "left",
+                                "duration": 1.0,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.5
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 3.5,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.5
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "left",
+                                "duration": 1.0
+                            }
+                        }
+                    ],
+                    "loop_count": 1
+                }
+            }
+        },
+        "next": [
+            "退出委托仅识别",
+            "[JumpBack]挂机战斗无复位"
+        ]
+    },
+    //艾达版本，地图更新
+    //以下均被废弃，作为归档
     //70级
     "皎皎信物70扼守": {
         "recognition": {
@@ -1487,6 +1425,403 @@
                             "action": "interact",
                             "params": {
                                 "interaction_type": "pet"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    //密函
+    //密函40扼守四张地图，电梯左中右、平台
+    "密函40扼守-跑图": {
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "IfElseReco",
+                "custom_recognition_param": {
+                    "entry": "探险扼守未抵达目的地",
+                    "if": "密函40扼守-平台跑图",
+                    "elif": [
+                        "密函40扼守-电梯左跑图",
+                        "密函40扼守-电梯中跑图",
+                        "密函40扼守-电梯右跑图"
+                    ],
+                    "else": true
+                }
+            }
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "IfElseAction",
+                "custom_action_param": {
+                    "if": "密函40扼守-平台跑图",
+                    "elif": [
+                        "密函40扼守-电梯左跑图",
+                        "密函40扼守-电梯中跑图",
+                        "密函40扼守-电梯右跑图"
+                    ],
+                    "else": "局内放弃委托"
+                }
+            }
+        },
+        "next": [
+            "退出委托仅识别",
+            "[JumpBack]无尽行动抉择",
+            "[JumpBack]挂机战斗无复位",
+            "[JumpBack]密函报酬选择"
+        ]
+    },
+    //电梯左跑图，复位后174m，同扼守70级（复位后166m）
+    "密函40扼守-电梯左跑图": {
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "template": "副本/目标点",
+                "green_mask": true,
+                "roi": [
+                    397,
+                    457,
+                    70,
+                    80
+                ]
+            }
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 1.2,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        },
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 7.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 15,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    },
+                                    {
+                                        "action": "move",
+                                        "params": {
+                                            "direction": "left",
+                                            "duration": 1.2
+                                        },
+                                        "at": 0.9
+                                    },
+                                    {
+                                        "action": "move",
+                                        "params": {
+                                            "direction": "right",
+                                            "duration": 1.2
+                                        },
+                                        "at": 6
+                                    },
+                                    {
+                                        "action": "move",
+                                        "params": {
+                                            "direction": "right",
+                                            "duration": 1.2
+                                        },
+                                        "at": 10.5
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    //电梯中跑图，同扼守70级
+    "密函40扼守-电梯中跑图": {
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "template": "副本/目标点",
+                "green_mask": true,
+                "roi": [
+                    622,
+                    487,
+                    70,
+                    80
+                ]
+            }
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 1.2,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        },
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 7.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "right",
+                                "duration": 7.8,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    },
+                                    {
+                                        "action": "move",
+                                        "params": {
+                                            "direction": "backward",
+                                            "duration": 0.9
+                                        },
+                                        "at": 0.78
+                                    },
+                                    {
+                                        "action": "move",
+                                        "params": {
+                                            "direction": "forward",
+                                            "duration": 1.2
+                                        },
+                                        "at": 2.7
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    //电梯右跑图，同扼守70级
+    "密函40扼守-电梯右跑图": {
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "template": "副本/目标点",
+                "green_mask": true,
+                "roi": [
+                    830,
+                    455,
+                    70,
+                    80
+                ]
+            }
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 1.2,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        },
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 7.5
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "right",
+                                "duration": 1.23,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "backward",
+                                "duration": 6.9,
+                                "overlays": [
+                                    {
+                                        "action": "jump",
+                                        "at": 1.2
+                                    },
+                                    {
+                                        "action": "jump",
+                                        "at": 1.5
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "left",
+                                "duration": 3
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "backward",
+                                "duration": 4.53
+                            }
+                        },
+                        {
+                            "action": "run_node",
+                            "params": {
+                                "node": "局内复位"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    },
+    //平台跑图
+    "密函40扼守-平台跑图": {
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "template": "副本/目标点",
+                "green_mask": true,
+                "roi": [
+                    233,
+                    360,
+                    70,
+                    80
+                ]
+            }
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OperationRecordAction",
+                "custom_action_param": {
+                    "operations": [
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "left",
+                                "duration": 2.01,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    },
+                                    {
+                                        "action": "jump",
+                                        "at": 1.02
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "wait",
+                            "params": {
+                                "duration": 2.1
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "forward",
+                                "duration": 5.1,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "action": "move",
+                            "params": {
+                                "direction": "left",
+                                "duration": 17.7,
+                                "overlays": [
+                                    {
+                                        "action": "dodge",
+                                        "at": 0.51
+                                    }
+                                ]
                             }
                         }
                     ]

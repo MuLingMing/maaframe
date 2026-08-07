@@ -40,7 +40,7 @@
             "委托已更新",
             "[JumpBack]委托完成次数",
             "[JumpBack]倍率选择0加成",
-            "[JumpBack]委托密函进入战斗",
+            "[JumpBack]通用副本战斗无复位",
             "[JumpBack]密函报酬选择",
             "[JumpBack]无尽行动抉择",
             "[JumpBack]选择密函",
@@ -69,10 +69,10 @@
             "[JumpBack]机关破解",
             "[JumpBack]无尽行动抉择",
             "[JumpBack]密函报酬选择",
-            "[JumpBack]挂机战斗复位"
+            "[JumpBack]挂机战斗有复位"
         ]
     },
-    "委托密函进入战斗": {
+    "通用副本战斗无复位": {
         "recognition": {
             "type": "TemplateMatch",
             "param": {
@@ -97,7 +97,7 @@
         ]
     },
     //挂机战斗复位、挂机战斗无复位
-    "挂机战斗复位": {
+    "挂机战斗有复位": {
         //基底挂机战斗流程，驱离默认
         "recognition": {
             "type": "TemplateMatch",
@@ -126,6 +126,14 @@
                             "name": "确认选择",
                             "run": false,
                             "interval": 2
+                        },
+                        {
+                            "name": "探险扼守未抵达目的地",
+                            "run": true,
+                            "interval": 2,
+                            "start_after": 16,
+                            "max_reco": 5,
+                            "record_reco": true
                         }
                     ],
                     "Continue": [
@@ -194,7 +202,7 @@
                             "name": "探险扼守未抵达目的地",
                             "run": true,
                             "interval": 2,
-                            "start_after": 10,
+                            "start_after": 16,
                             "max_reco": 5,
                             "record_reco": true
                         }

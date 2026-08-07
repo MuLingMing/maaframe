@@ -61,9 +61,8 @@
                 {
                     "name": "通用设置",
                     "option": [
-                        "倍率书副本次数",
-                        "倍率书副本次数播报",
-                        "单次倍率",
+                        "副本次数",
+                        "副本次数播报",
                         "超时时间"
                     ]
                 }
@@ -81,7 +80,7 @@
                 }
             ],
             "pipeline_override": {
-                "挂机战斗复位": {
+                "挂机战斗有复位": {
                     "attach": {
                         "total_time": "{total_time}"
                     }
@@ -93,7 +92,7 @@
                 }
             }
         },
-        "倍率书副本次数": {
+        "副本次数": {
             "type": "input",
             "inputs": [
                 {
@@ -112,7 +111,7 @@
                 }
             }
         },
-        "倍率书副本次数播报": {
+        "副本次数播报": {
             "type": "input",
             "inputs": [
                 {
@@ -185,6 +184,42 @@
                     }
                 }
             ]
+        },
+        "波次选择": {
+            "type": "input",
+            "inputs": [
+                {
+                    "name": "ocr_expected",
+                    "label": "波次选择",
+                    "description": "输入每次委托最大波次数，默认为99。",
+                    "pipeline_type": "string",
+                    "default": "99"
+                }
+            ],
+            "pipeline_override": {
+                "波次选择": {
+                    "expected": "{ocr_expected}"
+                }
+            }
+        },
+        "使用倍率书的波次": {
+            "type": "input",
+            "inputs": [
+                {
+                    "name": "target_count",
+                    "label": "倍率波次",
+                    "description": "输入倍率书的波次，默认为0，即不使用倍率书。\n选择指定波次使用倍率书时建议手动关闭自动波次。",
+                    "pipeline_type": "int",
+                    "default": "0"
+                }
+            ],
+            "pipeline_override": {
+                "无尽波次选择倍率书或密函": {
+                    "attach": {
+                        "target_count": "{target_count}"
+                    }
+                }
+            }
         }
     }
 }
