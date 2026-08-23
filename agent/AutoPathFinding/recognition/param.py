@@ -49,6 +49,7 @@ class PathFindingParam:
         rotation_upper_threshold: 大幅调整阈值（度），偏差超过此值视为 LARGE_TURN
         rotation_adaptive_enabled: 是否启用自适应转向距离
         stuck_timeout_ms: 卡住阶段最长持续时间（毫秒），超过后判定导航失败
+        turn_speed_factor: 滑动距离相对 offset_norm 的比例（默认 0.7），保证滑动后目标朝中心移动但不越过
     """
 
     ordered_templates: list[str]
@@ -81,3 +82,4 @@ class PathFindingParam:
     rotation_upper_threshold: float
     rotation_adaptive_enabled: bool
     stuck_timeout_ms: int
+    turn_speed_factor: float

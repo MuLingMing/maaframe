@@ -138,41 +138,51 @@ def compute_turn_distance(
     distance_missing_turn_scale: float,
     turn_min_floor_ratio: float,
     adaptive_speed: float = 1.0,
+    speed_factor: float = 0.7,
 ) -> float:
     """计算转向滑动距离（像素）。
 
-    设计：
-    - 基础距离根据目标偏移比例（offset_norm / 半屏宽）在 [min, max] 之间线性插值
-    - 第 2 次起按 distance_missing_turn_scale 衰减
-    - 衰减下限由 turn_min_floor_ratio 保护（相对 min_turn_distance）
+    设计（动态自适应）：
+    - 基础距离 = offset_norm * speed_factor（让目标刚好走到中心附近，不越过去）
+    - speed_factor < 1.0 保证滑动后目标落在中心**附近**但**不越过**到反方向
+    - 上限保护：max_turn_distance（防止极端偏移下滑动过大）
+    - 下限保护：min_turn_distance（防止极小偏移时滑动过短）
     - 自适应速度（借鉴 MapTracker EMA）乘以最终距离
+    - 第 2 次起按 distance_missing_turn_scale 衰减
 
     参数:
     - offset_norm: 目标相对屏幕中心的欧氏距离
     - turn_attempt: 当前是第几次连续转向（从 1 开始）
-    - min_turn_distance: 最短转向滑动距离（像素）
-    - max_turn_distance: 最长转向滑动距离（像素）
+    - min_turn_distance: 最短转向滑动距离（像素），下限保护
+    - max_turn_distance: 最长转向滑动距离（像素），上限保护
     - distance_missing_turn_scale: 连续缺失距离时衰减系数
     - turn_min_floor_ratio: 滑动距离下限比例
     - adaptive_speed: 自适应速度系数（默认 1.0）
+    - speed_factor: 滑动距离相对 offset_norm 的比例（默认 0.7）
 
     返回值:
     - float: 滑动距离（像素）
     """
-    offset_ratio = min(1.0, offset_norm / (SCREEN_WIDTH / 2))
-    base_distance = min_turn_distance + offset_ratio * (
-        max_turn_distance - min_turn_distance
-    )
+    # 动态距离：滑动距离与目标偏移成正比，保证滑动后目标朝中心移动但不越过
+    base_distance = offset_norm * speed_factor
 
-    # 第 2 次起衰减，但有下限保护（避免连续衰减后转向距离过小）
+    # 第 2 次起衰减（连续缺失距离时减小滑动）
     if turn_attempt > 1:
         base_distance *= distance_missing_turn_scale ** (turn_attempt - 1)
-        floor = min_turn_distance * turn_min_floor_ratio
-        if base_distance < floor:
-            base_distance = floor
 
     # 应用自适应速度
-    return base_distance * adaptive_speed
+    base_distance *= adaptive_speed
+
+    # 上限保护：避免极端偏移下滑动过大
+    if base_distance > max_turn_distance:
+        base_distance = max_turn_distance
+
+    # 下限保护：避免极小偏移时滑动过短
+    floor = min_turn_distance * turn_min_floor_ratio
+    if base_distance < floor:
+        base_distance = floor
+
+    return base_distance
 
 
 def compute_turn_clip_rect(
@@ -215,11 +225,16 @@ def compute_turn_coordinates(
     adaptive_speed: float = 1.0,
     min_offset_ratio: float = 0.0,
     screen_center: tuple[int, int] = SCREEN_CENTER,
+    speed_factor: float = 0.7,
 ) -> Tuple[Tuple[int, int], Tuple[int, int]] | None:
     """基于目标中心偏移计算转向滑动起止点。
 
     借鉴 MaaEnd MapTracker 的设计：
-    - 滑动方向与目标偏移相反
+    - 滑动方向将目标朝屏幕中心"推"：手指 swipe (sx,sy)->(ex,ey) 后，
+      屏幕中目标的位置变化 = swipe 向量本身。
+      因此要让目标回到屏幕中心，需要 swipe 方向 = -offset。
+    - 滑动距离与 offset_norm 成正比（动态自适应），保证滑动后目标朝中心移动
+      而不越过中心到反方向。
     - 滑动向量以选定 clip rect 中心为基准放置
     - 起止点裁剪到 clip rect 内，避免硬裁剪导致滑动坍塌
 
@@ -256,14 +271,15 @@ def compute_turn_coordinates(
         distance_missing_turn_scale,
         turn_min_floor_ratio,
         adaptive_speed,
+        speed_factor,
     )
 
     if offset_norm == 0:
         return None
 
-    # 滑动方向：起点偏向目标反方向，终点偏向目标方向
-    ux = -offset_x / offset_norm
-    uy = -offset_y / offset_norm
+    # swipe 单位向量：与目标偏移相反（把目标推向屏幕中心的方向）
+    swx = -offset_x / offset_norm
+    swy = -offset_y / offset_norm
 
     # 选 clip rect
     clip_x, clip_y, clip_w, clip_h = compute_turn_clip_rect(
@@ -273,10 +289,13 @@ def compute_turn_coordinates(
     rect_cy = clip_y + clip_h / 2
 
     half_dist = base_distance / 2
-    start_x = rect_cx + ux * half_dist
-    start_y = rect_cy + uy * half_dist
-    end_x = rect_cx - ux * half_dist
-    end_y = rect_cy - uy * half_dist
+    # 起点：clip 中心向 swipe 反方向（目标方向）偏移 half_dist
+    start_x = rect_cx - swx * half_dist
+    start_y = rect_cy - swy * half_dist
+    # 终点：clip 中心向 swipe 方向（目标反方向）偏移 half_dist
+    # 即 swipe = end - start = (-offset_x, -offset_y)
+    end_x = rect_cx + swx * half_dist
+    end_y = rect_cy + swy * half_dist
 
     # 裁剪到选定 clip rect
     start_x = max(clip_x, min(start_x, clip_x + clip_w))

@@ -15,7 +15,7 @@
 		"properties": {
 			"custom_recognition_param": {
 				"$ref": "#/definitions/PathFindingRecoParam",
-				"description": "PathFindingReco 自动寻路识别器参数\n\n功能：\n1. 识别游戏画面中的目标图标（模板匹配）\n2. 提取目标图标下方的距离信息（OCR）\n3. 计算目标相对于屏幕中心的方向\n4. 选择最优目标（支持插件式选择器）\n5. 评估运动状态（approaching / arrived / stuck）\n6. 目标锁定/追踪/解锁，保证选择连贯性\n7. 距离缺失时计算转向坐标（turn_start / turn_end）\n\n返回值格式（兼容 IfElseAction）：\n- hit=True, hit_node=\"if\": 识别到目标，detail 包含目标信息、方向、运动状态、lock_id 和转向坐标\n- hit=False, hit_node=\"else\": 未识别到目标\n\ndetail 字段：\n- hit_node: \"if\" 或 \"else\"，用于 IfElseAction 分支\n- target: 目标信息\n  - template: 命中的模板名\n  - center: 目标中心 [x, y]\n  - bbox: 目标边界 [x, y, w, h]\n  - score: 匹配分数\n  - distance: 距离值（可选）\n- direction: 移动方向，可选值：forward / backward / left / right / centered\n  - centered 表示目标已在屏幕中心死区内，无需移动\n- state: 运动状态，可选值：approaching / arrived / stuck\n  - approaching: 正在接近目标\n  - arrived: 距离 ≤ arrival_distance，判定已到达\n  - stuck: 连续 stuck_threshold 帧距离/中心几乎无变化，判定卡住\n- lock_id: 当前锁定目标的唯一标识，用于 PathFinderAction 的 once_per_target 闪避\n- turn_start / turn_end: 转向滑动起止坐标 [x, y]，仅在 enable_turning=true 且距离缺失时返回\n\n示例：\n{\n    \"expected_templates\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"roi\": [0, 0, 1280, 720],\n    \"threshold\": 0.8,\n    \"selector_type\": \"priority\",\n    \"selector_priority\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"distance_pattern\": \"(\\\\d+)米\",\n    \"distance_offset\": [10, 10, 20, 20],\n    \"dead_zone\": 50\n}"
+				"description": "PathFindingReco 自动寻路识别器参数\n\n功能：\n1. 识别游戏画面中的目标图标（模板匹配）\n2. 提取目标图标下方的距离信息（OCR）\n3. 计算目标相对于屏幕中心的方向\n4. 选择最优目标（支持插件式选择器）\n5. 评估运动状态（approaching / arrived / stuck）\n6. 目标锁定/追踪/解锁，保证选择连贯性\n7. 距离缺失时计算转向坐标（turn_start / turn_end）\n\n返回值格式（兼容 IfElseAction）：\n- hit=True, hit_node=\"if\": 识别到目标，detail 包含目标信息、方向、运动状态、lock_id 和转向坐标\n- hit=False, hit_node=\"else\": 未识别到目标\n\ndetail 字段：\n- hit_node: \"if\" 或 \"else\"，用于 IfElseAction 分支\n- target: 目标信息\n  - template: 命中的模板名\n  - center: 目标中心 [x, y]\n  - bbox: 目标边界 [x, y, w, h]\n  - score: 匹配分数\n  - distance: 距离值（可选）\n- direction: 移动方向，可选值：forward / backward / left / right / centered\n  - centered 表示目标已在屏幕中心死区内，无需移动\n- state: 运动状态，可选值：approaching / arrived / stuck\n  - approaching: 正在接近目标\n  - arrived: 距离 ≤ arrival_distance，判定已到达\n  - stuck: 连续 stuck_threshold 帧距离/中心几乎无变化，判定卡住\n- lock_id: 当前锁定目标的唯一标识，用于 PathFinderAction 的 once_per_target 闪避\n- turn_start / turn_end: 转向滑动起止坐标 [x, y]，仅在 enable_turning=true 且距离缺失时返回\n- phase: 阶段状态机，可选值：seeking / tracking / approaching / turning / stuck / lost\n  - seeking: 搜索阶段，未锁定目标\n  - tracking: 追踪阶段，已锁定目标但距离缺失\n  - approaching: 接近阶段，已锁定且有距离信息\n  - turning: 转向阶段，正在执行转向\n  - stuck: 卡住阶段，连续多帧无进展\n  - lost: 丢失阶段，目标识别失败\n- turn_grade: 转向分级，可选值：fine_tune / large_turn\n  - fine_tune: 微调（小角度偏差）\n  - large_turn: 大幅调整（大角度偏差），Action 端会先释放按键再滑\n\n示例：\n{\n    \"expected_templates\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"roi\": [0, 0, 1280, 720],\n    \"threshold\": 0.8,\n    \"selector_type\": \"priority\",\n    \"selector_priority\": [\"quest_icon.png\", \"shop_icon.png\"],\n    \"distance_pattern\": \"(\\\\d+)米\",\n    \"distance_offset\": [10, 10, 20, 20],\n    \"dead_zone\": 50\n}"
 			}
 		}
 	},
@@ -153,6 +153,56 @@
 					"minimum": 0,
 					"maximum": 1,
 					"description": "连续未识别到距离时转向滑动距离衰减系数，默认 0.5\n\n第 2 次起的滑动距离 = 前一次 × 此系数"
+				},
+				"turn_min_floor_ratio": {
+					"type": "number",
+					"default": 0.5,
+					"minimum": 0,
+					"maximum": 1,
+					"description": "转向滑动距离下限比例，默认 0.5\n\n连续衰减时滑动距离不得低于 min_turn_distance × 此值，避免距离过小导致转向失效"
+				},
+				"turn_speed_factor": {
+					"type": "number",
+					"default": 0.7,
+					"minimum": 0,
+					"maximum": 2,
+					"description": "滑动距离相对 offset_norm 的比例，默认 0.7（动态自适应算法核心）\n\nbase_distance = offset_norm × 此值；小于 1.0 保证滑动后目标朝屏幕中心移动而不越过中心到反方向"
+				},
+				"direction_hysteresis": {
+					"type": "number",
+					"default": 15.0,
+					"minimum": 0,
+					"maximum": 180,
+					"description": "方向分箱的角度滞回阈值（度），默认 15.0\n\n在 45° 边界附近的目标抖动时抑制方向切换；设为 0 关闭滞回"
+				},
+				"fast_path_miss_limit": {
+					"type": "integer",
+					"default": 3,
+					"minimum": 1,
+					"description": "锁定态快速通道连续 miss 阈值，默认 3\n\n连续此帧 miss 后强制回退到全 ROI 扫描，避免锁定目标丢失后死循环"
+				},
+				"rotation_lower_threshold": {
+					"type": "number",
+					"default": 8.0,
+					"minimum": 0,
+					"description": "微调阈值（度），默认 8.0\n\n偏差（与上一帧 angle 的差）低于此值视为 FINE_TUNE 微调"
+				},
+				"rotation_upper_threshold": {
+					"type": "number",
+					"default": 60.0,
+					"minimum": 0,
+					"description": "大幅调整阈值（度），默认 60.0\n\n偏差超过此值视为 LARGE_TURN 大幅转向，Action 端会先释放按键再滑"
+				},
+				"rotation_adaptive_enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "是否启用自适应转向距离（借鉴 MapTracker EMA），默认 true\n\n开启后使用历史偏差动态调整滑动距离"
+				},
+				"stuck_timeout_ms": {
+					"type": "integer",
+					"default": 10000,
+					"minimum": 0,
+					"description": "卡住阶段最长持续时间（毫秒），默认 10000\n\n超过此时长后判定导航失败；0 表示不限制"
 				},
 				"dead_zone": {
 					"type": "integer",

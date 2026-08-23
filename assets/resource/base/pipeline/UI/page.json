@@ -54,7 +54,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "主页面-历练": {
         //从主页面识别历练图标
@@ -72,7 +76,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "角色面板-历练": {
         //从角色面板识别历练图标/文字
@@ -93,7 +101,11 @@
                 }
             }
         ],
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "角色面板-铸造": {
         "recognition": "Or",
@@ -127,7 +139,11 @@
                 }
             }
         ],
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "角色面板-地图": {
         "recognition": "Or",
@@ -161,7 +177,11 @@
                 }
             }
         ],
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "角色面板-时间": {
         "recognition": {
@@ -178,7 +198,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "历练-委托": {
         "recognition": {
@@ -195,7 +219,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "委托-委托密函": {
         "recognition": {
@@ -213,7 +241,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "历练-歧路足音": {
         "recognition": {
@@ -230,7 +262,11 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     },
     "歧路足音-迷津": {
         //匹配迷津图片或文字
@@ -268,6 +304,7 @@
             }
         ],
         "action": "Click",
+        "post_delay": 800,
         "next": [
             "前往迷津/戏剧"
         ]
@@ -307,6 +344,7 @@
             }
         ],
         "action": "Click",
+        "post_delay": 800,
         "next": [
             "前往迷津/戏剧"
         ]
@@ -326,6 +364,10 @@
                 ]
             }
         },
-        "action": "Click"
+        "action": "Click",
+        "post_delay": 800,
+        "next": [
+            "空"
+        ]
     }
 }

@@ -25,10 +25,11 @@ class PathFinderParam:
         distance_near: 近距离阈值（像素）
         max_move_time: 单次移动最大时长（毫秒），0 表示不限制
         dodge_at_start: 移动开始时闪避模式（never/always/once_per_target）
-        dodge_direction: 闪避方向
+        dodge_direction: 闪避方向（dodge_follows_direction=false 或 direction=centered 时使用；游戏单点闪避默认 backward）
         enable_turning: 是否执行 Reco 建议的转向（执行侧保险开关）
         dodge_follows_direction: 闪避方向是否跟随本帧移动方向；true 时忽略 dodge_direction
         dodge_release_ms: dodge 与 move 之间的短暂释放时长（毫秒），0 表示不释放
+        move_start_delay_ms: move 开始前的额外等待时长（毫秒），用于在 dodge/turn 完成后给游戏反应时间，默认 300
         turn_duration_ms: 显式转向滑动持续时间（毫秒），None 表示用 platform 默认
         large_turn_release_ms: 大幅转向（LARGE_TURN）前先释放按键的时长（毫秒），0 表示不释放
         stuck_dodge_on_phase: 卡住阶段是否触发 dodge
@@ -45,6 +46,7 @@ class PathFinderParam:
     enable_turning: bool
     dodge_follows_direction: bool
     dodge_release_ms: int
+    move_start_delay_ms: int
     turn_duration_ms: int | None
     large_turn_release_ms: int
     stuck_dodge_on_phase: bool

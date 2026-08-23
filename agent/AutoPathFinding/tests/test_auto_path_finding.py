@@ -70,6 +70,7 @@ def make_param(
     rotation_upper_threshold: float = 60.0,
     rotation_adaptive_enabled: bool = True,
     stuck_timeout_ms: int = 10000,
+    turn_speed_factor: float = 0.7,
 ) -> PathFindingParam:
     """构造用于测试的 PathFindingParam。"""
     return PathFindingParam(
@@ -103,6 +104,7 @@ def make_param(
         rotation_upper_threshold=rotation_upper_threshold,
         rotation_adaptive_enabled=rotation_adaptive_enabled,
         stuck_timeout_ms=stuck_timeout_ms,
+        turn_speed_factor=turn_speed_factor,
     )
 
 
@@ -115,11 +117,12 @@ def make_action_param(
     distance_near: int = 50,
     max_move_time: int = 0,
     dodge_at_start: str = "never",
-    dodge_direction: str = "forward",
+    dodge_direction: str = "backward",
     enable_turning: bool = True,
     dodge_follows_direction: bool = True,
     dodge_release_ms: int = 50,
-    turn_duration_ms: int | None = None,
+    move_start_delay_ms: int = 300,
+    turn_duration_ms: int | None = 200,
     large_turn_release_ms: int = 100,
     stuck_dodge_on_phase: bool = True,
 ) -> PathFinderParam:
@@ -136,6 +139,7 @@ def make_action_param(
         enable_turning=enable_turning,
         dodge_follows_direction=dodge_follows_direction,
         dodge_release_ms=dodge_release_ms,
+        move_start_delay_ms=move_start_delay_ms,
         turn_duration_ms=turn_duration_ms,
         large_turn_release_ms=large_turn_release_ms,
         stuck_dodge_on_phase=stuck_dodge_on_phase,
@@ -434,7 +438,9 @@ class TestTurnCoordinates:
         reco = make_reco()
         state = PathFindingState()
         param = make_param()
-        # 目标在屏幕左侧 -> 应从右往左滑（start_x > end_x）
+        # 目标在屏幕左侧 (offset_x=-240)
+        # 期望 swipe 把目标推向屏幕中心，即 swipe_vec_x = +240（向右）
+        # 因此 end_x > start_x
         target = TargetInfo(
             template="a.png",
             center=(400, 360),
@@ -445,8 +451,8 @@ class TestTurnCoordinates:
         start, end, _grade = reco._calculate_turn(state, target, param)
         assert start is not None
         assert end is not None
-        # 目标偏左：起点应在右（>end_x），终点应在左
-        assert start[0] > end[0]
+        # 目标偏左：swipe 应向右（end_x > start_x），即起点在左、终点在右
+        assert end[0] > start[0]
 
     def test_turn_coordinates_clipped_to_rect(self):
         reco = make_reco()
@@ -469,6 +475,7 @@ class TestTurnCoordinates:
             assert clip_y <= point[1] <= clip_y + clip_h
 
     def test_turn_distance_decay(self):
+        """连续缺失距离时滑动距离按 scale 衰减。"""
         reco = make_reco()
         state = PathFindingState()
         param = make_param(distance_missing_turn_scale=0.5)
@@ -487,8 +494,69 @@ class TestTurnCoordinates:
 
         first_len = distance(first_start, first_end)
         second_len = distance(second_start, second_end)
+        # 第 2 次 = 第 1 次 * 0.5
         assert second_len < first_len
         assert second_len == pytest.approx(first_len * 0.5, rel=0.05)
+
+    def test_turn_distance_proportional_to_offset(self):
+        """滑动距离 = offset_norm * speed_factor（动态自适应）。"""
+        reco = make_reco()
+        state = PathFindingState()
+
+        # 偏下 20px：offset_norm=20，预期 base = 20 * 0.7 = 14 -> 被 floor 提到 25
+        small_target = TargetInfo(
+            template="a.png",
+            center=(640, 380),  # offset_y=+20
+            bbox=(620, 360, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        # 偏下 100px：offset_norm=100，预期 base = 100 * 0.7 = 70
+        large_target = TargetInfo(
+            template="a.png",
+            center=(640, 460),  # offset_y=+100
+            bbox=(620, 440, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+
+        param = make_param()
+        s1, e1, _ = reco._calculate_turn(state, small_target, param)
+        state2 = PathFindingState()
+        s2, e2, _ = reco._calculate_turn(state2, large_target, param)
+
+        def distance(p1, p2):
+            return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
+
+        small_len = distance(s1, e1)
+        large_len = distance(s2, e2)
+
+        # 偏移越大，滑动距离越大（动态自适应）
+        assert large_len > small_len
+        # 比例关系：large / small = 100 / 20 = 5
+        assert large_len == pytest.approx(small_len * (100 / 20), rel=0.15)
+
+    def test_turn_distance_capped_by_max(self):
+        """base_distance 受 max_turn_distance 上限保护。"""
+        reco = make_reco()
+        state = PathFindingState()
+        param = make_param(max_turn_distance=80, turn_speed_factor=0.7)
+        # 极大偏移：offset_norm=300，base=210 远超 max=80
+        target = TargetInfo(
+            template="a.png",
+            center=(640, 60),  # offset_y=-300
+            bbox=(620, 40, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        start, end, _ = reco._calculate_turn(state, target, param)
+
+        def distance(p1, p2):
+            return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
+
+        swipe_len = distance(start, end)
+        # 不超过 max_turn_distance + 少许 clip 误差
+        assert swipe_len <= 80
 
     def test_turn_stops_after_max_attempts(self):
         reco = make_reco()
@@ -1037,6 +1105,83 @@ class TestTurnClipAxis:
         assert start != end
 
 
+class TestTurnSwipeDirection:
+    """滑动方向正确性测试（修复 Bug：原版滑动方向与期望相反）。
+
+    关键约束：
+    - 移动端手势 swipe (sx,sy) -> (ex,ey) 后，屏幕中目标位置变化 = swipe 向量
+    - 要把目标从 (tx, ty) 推向屏幕中心 (cx, cy)，swipe 应 = (cx-tx, cy-ty) = -offset
+    - 修复前 swipe = +offset，方向完全反向；修复后 swipe = -offset。
+    """
+
+    def _compute_swipe(self, target_center, **param_overrides):
+        reco = make_reco()
+        state = PathFindingState()
+        param = make_param(**param_overrides)
+        target = TargetInfo(
+            template="a.png",
+            center=target_center,
+            bbox=(target_center[0] - 20, target_center[1] - 20, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        start, end, _grade = reco._calculate_turn(state, target, param)
+        assert start is not None and end is not None, "转向不应被放弃"
+        return start, end
+
+    @pytest.mark.parametrize(
+        "target,expected_swipe_sign",
+        [
+            # 目标在屏幕下方：swipe 应向上（dy < 0）
+            ((640, 400), (-1, -1)),    # 偏下，期望 swipe=(0, -)
+            ((640, 380), (0, -1)),     # 用户场景：略偏下，期望向上滑
+            ((640, 440), (0, -1)),     # 偏下大距离
+            # 目标在屏幕上方：swipe 应向下（dy > 0）
+            ((640, 320), (0, 1)),      # 偏上
+            ((640, 280), (0, 1)),      # 偏上较多
+            # 目标在屏幕右方：swipe 应向左（dx < 0）
+            ((700, 360), (-1, 0)),     # 偏右
+            # 目标在屏幕左方：swipe 应向右（dx > 0）
+            ((580, 360), (1, 0)),      # 偏左
+        ],
+    )
+    def test_swipe_direction_pulls_target_toward_center(self, target, expected_swipe_sign):
+        """滑动向量应把目标朝屏幕中心推（即 swipe 方向 = -offset 方向）。"""
+        start, end = self._compute_swipe(target)
+        sx, sy = start
+        ex, ey = end
+        swipe_dx = ex - sx
+        swipe_dy = ey - sy
+        assert (swipe_dx > 0) == (expected_swipe_sign[0] > 0)
+        assert (swipe_dy > 0) == (expected_swipe_sign[1] > 0)
+        # 至少一个轴方向正确（允许另一个轴为 0）
+        assert swipe_dx != 0 or swipe_dy != 0
+
+    def test_target_below_center_swipes_up(self):
+        """用户场景：目标在屏幕下方，swipe 应向上（dy < 0）。"""
+        start, end = self._compute_swipe((640, 380))
+        swipe_dy = end[1] - start[1]
+        assert swipe_dy < 0, f"目标在屏幕下方，期望 swipe 向上，但 dy={swipe_dy}"
+
+    def test_target_above_center_swipes_down(self):
+        """目标在屏幕上方时 swipe 应向下（dy > 0）。"""
+        start, end = self._compute_swipe((640, 320))
+        swipe_dy = end[1] - start[1]
+        assert swipe_dy > 0, f"目标在屏幕上方，期望 swipe 向下，但 dy={swipe_dy}"
+
+    def test_target_left_center_swipes_right(self):
+        """目标在屏幕左方时 swipe 应向右（dx > 0）。"""
+        start, end = self._compute_swipe((580, 360))
+        swipe_dx = end[0] - start[0]
+        assert swipe_dx > 0, f"目标在屏幕左方，期望 swipe 向右，但 dx={swipe_dx}"
+
+    def test_target_right_center_swipes_left(self):
+        """目标在屏幕右方时 swipe 应向左（dx < 0）。"""
+        start, end = self._compute_swipe((700, 360))
+        swipe_dx = end[0] - start[0]
+        assert swipe_dx < 0, f"目标在屏幕右方，期望 swipe 向左，但 dx={swipe_dx}"
+
+
 class TestFastPathMiss:
     """fast_path 连续 miss 自动回退到全 ROI 测试。"""
 
@@ -1067,13 +1212,125 @@ class TestActionParam:
         param = make_action_param()
         assert param.dodge_follows_direction is True
         assert param.dodge_release_ms == 50
-        assert param.turn_duration_ms is None
+        assert param.move_start_delay_ms == 300
+        assert param.turn_duration_ms == 200
 
     def test_dodge_release_ms_override(self):
         action = make_action()
         param = make_action_param(dodge_release_ms=0, turn_duration_ms=120)
         assert param.dodge_release_ms == 0
         assert param.turn_duration_ms == 120
+
+    def test_move_start_delay_ms_default_and_override(self):
+        action = make_action()
+        param_default = make_action_param()
+        assert param_default.move_start_delay_ms == 300
+        param_custom = make_action_param(move_start_delay_ms=500)
+        assert param_custom.move_start_delay_ms == 500
+
+    def test_execute_sequence_waits_move_start_delay(self):
+        """move 开始前应等待 move_start_delay_ms。"""
+        import time as _time
+
+        action = make_action()
+        param = make_action_param(move_start_delay_ms=200)
+
+        class _StubPlatform:
+            def __init__(self):
+                self.move_called = False
+                self.move_start_time = 0.0
+
+            def dodge(self, direction):
+                return True
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                return True
+
+            def move(self, direction, duration):
+                self.move_called = True
+                self.move_start_time = _time.monotonic()
+                return True
+
+            def release_all(self):
+                return True
+
+        platform = _StubPlatform()
+
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        start_time = _time.monotonic()
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="forward",
+            param=param,
+            distance=None,
+            lock_id="lock1",
+            turn_start=None,
+            turn_end=None,
+            turn_grade=None,
+            phase=None,
+        )
+        elapsed = platform.move_start_time - start_time
+        assert platform.move_called is True
+        # 应该至少等待 move_start_delay_ms (200ms)
+        assert elapsed >= 0.18  # 容忍 20ms 误差
+
+    def test_execute_sequence_move_start_delay_zero_skips_wait(self):
+        """move_start_delay_ms=0 时不等待直接 move。"""
+        import time as _time
+
+        action = make_action()
+        param = make_action_param(move_start_delay_ms=0)
+
+        class _StubPlatform:
+            def __init__(self):
+                self.move_called = False
+
+            def dodge(self, direction):
+                return True
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                return True
+
+            def move(self, direction, duration):
+                self.move_called = True
+                return True
+
+            def release_all(self):
+                return True
+
+        platform = _StubPlatform()
+
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        start_time = _time.monotonic()
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="forward",
+            param=param,
+            distance=None,
+            lock_id="lock1",
+            turn_start=None,
+            turn_end=None,
+            turn_grade=None,
+            phase=None,
+        )
+        elapsed = _time.monotonic() - start_time
+        assert platform.move_called is True
+        # 不应等待 move_start_delay
+        assert elapsed < 0.1
 
     def test_new_params_defaults(self):
         """新增的 large_turn_release_ms 与 stuck_dodge_on_phase 默认值。"""
@@ -1416,3 +1673,274 @@ class TestActionPhase:
         assert action._resolve_phase("invalid") is None
         assert action._resolve_phase(None) is None
         assert action._resolve_phase(123) is None
+
+
+class TestDeadZoneNoTurn:
+    """死区内不转向测试（避免中心附近抖动把目标推到屏幕外）。
+
+    场景：目标已在屏幕中心死区内（direction == "centered"）但距离 OCR 缺失。
+    此时若仍触发转向，会在视觉中心附近做微幅滑动，导致目标偏离中心，
+    下一帧 direction 变化，触发反向滑动，形成抖动并最终把目标推到屏幕外，
+    判为 backward 后向后移动。
+    """
+
+    def test_reco_no_turn_when_centered(self):
+        """Reco：direction=centered 且 distance=None 时不返回转向坐标。"""
+        reco = make_reco()
+        state = PathFindingState()
+        param = make_param()
+        # 目标在死区内（与屏幕中心偏移 < dead_zone=50）
+        target = TargetInfo(
+            template="a.png",
+            center=(645, 365),  # offset=(5, 5), norm≈7 < 50
+            bbox=(625, 345, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        start, end, grade = reco._calculate_turn(
+            state, target, param, direction="centered"
+        )
+        assert start is None
+        assert end is None
+        assert grade is None
+        # 计数应被清零（避免 centered 帧累积污染计数）
+        assert state.turn_attempts_without_distance == 0
+
+    def test_reco_still_turns_when_not_centered(self):
+        """Reco：direction != centered 且 distance=None 时仍正常转向。"""
+        reco = make_reco()
+        state = PathFindingState()
+        param = make_param()
+        # 目标偏左（不进入死区）
+        target = TargetInfo(
+            template="a.png",
+            center=(400, 360),  # offset_x=-240
+            bbox=(380, 340, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        start, end, grade = reco._calculate_turn(
+            state, target, param, direction="left"
+        )
+        assert start is not None
+        assert end is not None
+
+    def test_reco_no_turn_when_centered_resets_attempts(self):
+        """Reco：连续 centered 帧不累积 turn_attempts_without_distance。"""
+        reco = make_reco()
+        state = PathFindingState()
+        # 预先模拟有过几次 turn 尝试
+        state.turn_attempts_without_distance = 2
+        param = make_param()
+        target = TargetInfo(
+            template="a.png",
+            center=(645, 365),
+            bbox=(625, 345, 40, 40),
+            score=0.9,
+            distance=None,
+        )
+        # 死区帧：清零计数，不返回 turn
+        start, end, _ = reco._calculate_turn(
+            state, target, param, direction="centered"
+        )
+        assert start is None and end is None
+        assert state.turn_attempts_without_distance == 0
+
+    def test_action_skips_turn_when_centered(self, monkeypatch):
+        """Action：direction=centered 时跳过 turn 执行（不调用 platform.turn）。"""
+        action = make_action()
+        param = make_action_param()
+
+        class _StubPlatform:
+            def __init__(self):
+                self.turn_called = False
+                self.dodge_called = False
+                self.move_called = False
+                self.release_called = False
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                self.turn_called = True
+                return True
+
+            def dodge(self, direction):
+                self.dodge_called = True
+                return True
+
+            def move(self, direction, duration):
+                self.move_called = True
+                return True
+
+            def release_all(self):
+                self.release_called = True
+                return True
+
+        platform = _StubPlatform()
+
+        # 模拟 Context.tasker.stopping
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="centered",
+            param=param,
+            distance=None,
+            lock_id="lock1",
+            turn_start=[800, 200],
+            turn_end=[400, 400],  # 故意给一个非 None 的 turn 坐标
+            turn_grade="large_turn",
+            phase=None,
+        )
+        # centered 方向不应触发 turn 也不应触发 move，但 release_all 会执行
+        assert platform.turn_called is False, "centered 不应调用 platform.turn"
+        assert platform.move_called is False, "centered 不应调用 platform.move"
+        assert platform.release_called is True
+
+    def test_action_calls_turn_when_not_centered(self, monkeypatch):
+        """Action：direction != centered 且 Reco 返回 turn 坐标时正常执行 turn。"""
+        action = make_action()
+        param = make_action_param()
+
+        class _StubPlatform:
+            def __init__(self):
+                self.turn_called = False
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                self.turn_called = True
+                return True
+
+            def dodge(self, direction):
+                return True
+
+            def move(self, direction, duration):
+                return True
+
+            def release_all(self):
+                return True
+
+        platform = _StubPlatform()
+
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="left",
+            param=param,
+            distance=None,
+            lock_id="lock1",
+            turn_start=[800, 200],
+            turn_end=[400, 400],
+            turn_grade="fine_tune",
+            phase=None,
+        )
+        assert platform.turn_called is True
+
+    def test_action_centered_with_distance_no_move(self, monkeypatch):
+        """direction=centered 且 distance 有效时视为到达，不调用 move。"""
+        action = make_action()
+        param = make_action_param()
+
+        class _StubPlatform:
+            def __init__(self):
+                self.move_called = False
+                self.last_move_direction = None
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                return True
+
+            def dodge(self, direction):
+                return True
+
+            def move(self, direction, duration):
+                self.move_called = True
+                self.last_move_direction = direction
+                return True
+
+            def release_all(self):
+                return True
+
+        platform = _StubPlatform()
+
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="centered",
+            param=param,
+            distance=20,  # 已到达
+            lock_id="lock1",
+            turn_start=None,
+            turn_end=None,
+            turn_grade=None,
+            phase=None,
+        )
+        assert platform.move_called is False
+
+    def test_action_centered_no_distance_fallback_forward(self, monkeypatch):
+        """direction=centered 且 distance=None 时必须兜底前进（避免在死区内卡住）。"""
+        action = make_action()
+        param = make_action_param(move_duration=800)
+
+        class _StubPlatform:
+            def __init__(self):
+                self.move_called = False
+                self.last_move_direction = None
+                self.last_move_duration = None
+
+            def turn(self, sx, sy, ex, ey, duration=None):
+                return True
+
+            def dodge(self, direction):
+                return True
+
+            def move(self, direction, duration):
+                self.move_called = True
+                self.last_move_direction = direction
+                self.last_move_duration = duration
+                return True
+
+            def release_all(self):
+                return True
+
+        platform = _StubPlatform()
+
+        class _StubTasker:
+            stopping = False
+
+        class _StubContext:
+            tasker = _StubTasker()
+
+        ctx = _StubContext()
+        action._execute_sequence(
+            ctx,
+            platform,
+            direction="centered",
+            param=param,
+            distance=None,  # 距离缺失
+            lock_id="lock1",
+            turn_start=None,
+            turn_end=None,
+            turn_grade=None,
+            phase=None,
+        )
+        # 兜底前进：默认时长前进
+        assert platform.move_called is True
+        assert platform.last_move_direction == "forward"
+        assert platform.last_move_duration == pytest.approx(0.8)

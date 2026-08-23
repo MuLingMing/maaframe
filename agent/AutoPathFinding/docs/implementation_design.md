@@ -684,8 +684,11 @@ def _get_node_name(self, context):
 | ----------------- | ----------- | --------- | ------------------------------------------ |
 | `max_move_time`   | integer     | 0         | 单次移动最大时长（毫秒），0 不限制         |
 | `dodge_at_start`  | string enum | "never"   | `never` / `always` / `once_per_target`     |
-| `dodge_direction` | string      | "forward" | 闪避方向                                   |
+| `dodge_direction` | string      | "backward" | 闪避方向（默认 backward：游戏单点闪避默认向后翻滚）|
 | `enable_turning`  | boolean     | true      | 是否执行 Reco 建议的转向（执行侧保险开关） |
+| `turn_duration_ms`| integer     | 200       | 显式控制 `platform.turn` 滑动持续时间（毫秒），0 用 platform 默认 |
+| `dodge_release_ms` | integer | 50     | dodge 与 move 之间的短暂释放时长（毫秒），0 表示不释放     |
+| `move_start_delay_ms` | integer | 300 | move 开始前的额外等待时长（毫秒），给游戏反应时间         |
 
 ## 9. 状态流转
 
@@ -761,6 +764,7 @@ distance 识别成功 ──► turn_attempts_without_distance = 0
 - `state="arrived"` 时清空锁定。
 - `state="stuck"` 时保持锁定。
 - 720p 坐标基准不变。
+- **死区内不转向**（方向 `centered` 时 `_calculate_turn` 返回 `(None, None, None)`；Action 同样跳过 `platform.turn`）。
 
 ---
 
@@ -778,6 +782,10 @@ distance 识别成功 ──► turn_attempts_without_distance = 0
 | `MovementWalk/Run/Sprint` 状态机 | `Phase` 枚举（`seeking/tracking/approaching/turning/stuck/lost`），借鉴 `InferState` 设计 |
 | `stuckThreshold` + `stuckTimeout` 卡住检测 | `StuckDetector` 数据类 + `stuck_timeout_ms: int = 10000`，借鉴 `StuckDetector` 设计 |
 | 转向分级 `rotation is acceptable but can be improved` | `TurnGrade` 枚举（`FINE_TUNE` / `LARGE_TURN`），通过 `classify_turn()` 双阈值判定 |
+| 死区内不转向（避免中心抖动推到屏幕外） | Reco `_calculate_turn(direction="centered")` 返回 `(None, None, None)`；Action `_execute_sequence` 在 `direction == "centered"` 时跳过 `platform.turn`，**双重防护**。 |
+| **滑动方向语义修复** | `compute_turn_coordinates` 中 `swipe = end - start` 必须 = `-offset`（把目标推向屏幕中心）。原版误以为起点要"指向目标方向"，导致 swipe 向量与目标偏移同向，目标被推离屏幕中心。修复后通过 `logger.debug` 输出 swipe vec / expected vec 对照日志，便于现场排查。 |
+| **centered 死区内兜底前进** | Action 在 `direction == "centered"` 且 `distance is None`（OCR 失败）时不能再 return True，否则角色原地不动。改为 centered + distance 有效 → 视为到达（跳过 move）；centered + distance 缺失 → 兜底前进 `move_duration` 时长。 |
+| **滑动距离动态自适应** | `compute_turn_distance` 改为 `offset_norm * turn_speed_factor`（默认 0.7），保证滑动后目标朝屏幕中心移动而不越过中心到反方向。原版在 [min=50, max=400] 区间线性插值，大偏移下滑动距离过大（200-400px），相当于旋转视角 60°-90°。新增 `turn_speed_factor` 参数（默认 0.7），`max_turn_distance` 仍作为上限保护。 |
 
 ### 12.2 状态机迁移
 

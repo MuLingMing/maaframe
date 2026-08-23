@@ -269,7 +269,7 @@ class PathFindingReco(CustomRecognition):
 
         # 8. 计算转向坐标与分级（含自适应距离）
         turn_start, turn_end, turn_grade = self._calculate_turn(
-            state, selected, param
+            state, selected, param, direction=direction
         )
 
         # 9. 评估运动状态与更新阶段
@@ -412,6 +412,7 @@ class PathFindingReco(CustomRecognition):
             rotation_upper_threshold=param.get("rotation_upper_threshold", 60.0),
             rotation_adaptive_enabled=param.get("rotation_adaptive_enabled", True),
             stuck_timeout_ms=param.get("stuck_timeout_ms", 10000),
+            turn_speed_factor=param.get("turn_speed_factor", 0.7),
         )
 
     def _calculate_priority_order(
@@ -740,11 +741,16 @@ class PathFindingReco(CustomRecognition):
         state: PathFindingState,
         selected: TargetInfo,
         param: PathFindingParam,
+        direction: str | None = None,
     ) -> Tuple[Optional[Tuple[int, int]], Optional[Tuple[int, int]], Optional[TurnGrade]]:
         """
         当 enable_turning=true 且已选定目标 distance is None 时计算转向坐标。
 
         返回 (turn_start, turn_end, turn_grade) 或 (None, None, None)。
+
+        重要约束：
+        - direction == "centered" 时直接返回（不在死区内转向，避免抖动）：
+          目标已居中时转向会把目标挪到一边，下一帧再向反方向滑回去，形成抖动并把目标推到屏幕外。
         """
         if not param.enable_turning:
             state.turn_attempts_without_distance = 0
@@ -755,6 +761,12 @@ class PathFindingReco(CustomRecognition):
 
         if distance is not None:
             # 距离已识别：重置计数 + 自适应速度，并返回
+            state.turn_attempts_without_distance = 0
+            state.turn_grade = None
+            return None, None, None
+
+        # 死区内不转向：避免中心附近抖动把目标推到屏幕外
+        if direction == "centered":
             state.turn_attempts_without_distance = 0
             state.turn_grade = None
             return None, None, None
@@ -799,10 +811,49 @@ class PathFindingReco(CustomRecognition):
             vertical_clip=self.TURN_CLIP_VERTICAL,
             adaptive_speed=adaptive_speed,
             min_offset_ratio=self.TURN_MIN_OFFSET_RATIO,
+            speed_factor=param.turn_speed_factor,
         )
 
         if coords is None:
+            logger.debug(
+                "[PathFindingReco] turn collapsed: target=%s angle=%.1f° last_angle=%s "
+                "grade=%s attempts=%d/%d",
+                selected.center,
+                current_angle,
+                last_angle,
+                grade.value if grade else None,
+                state.turn_attempts_without_distance,
+                param.max_turn_attempts,
+            )
             return None, None, grade
+
+        # 调试日志：转向坐标与滑动向量方向
+        (sx, sy), (ex, ey) = coords
+        swipe_dx = ex - sx
+        swipe_dy = ey - sy
+        tx, ty = selected.center
+        offset_x = tx - SCREEN_CENTER[0]
+        offset_y = ty - SCREEN_CENTER[1]
+        logger.debug(
+            "[PathFindingReco] turn: target=%s offset=(%+d,%+d) angle=%.1f° "
+            "grade=%s attempts=%d swipe=(%d,%d)->(%d,%d) swipe_vec=(%+d,%+d) "
+            "expected_vec=(%+d,%+d) match=%s",
+            selected.center,
+            offset_x,
+            offset_y,
+            current_angle,
+            grade.value if grade else None,
+            state.turn_attempts_without_distance,
+            sx,
+            sy,
+            ex,
+            ey,
+            swipe_dx,
+            swipe_dy,
+            -offset_x,
+            -offset_y,
+            "OK" if (swipe_dx * (-offset_x) + swipe_dy * (-offset_y)) > 0 else "REVERSED",
+        )
 
         return coords[0], coords[1], grade
 

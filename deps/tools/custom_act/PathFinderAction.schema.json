@@ -15,7 +15,7 @@
 		"properties": {
 			"custom_action_param": {
 				"$ref": "#/definitions/PathFinderActionParam",
-				"description": "PathFinderAction 自动寻路执行器参数\n\n**功能**：\n1. 根据识别结果按 dodge → turn → move 顺序执行动作\n2. 根据 lock_id 与 dodge_at_start 策略执行闪避\n3. 根据 turn_start/turn_end 与 enable_turning 执行转向\n4. 根据 target.distance 与 max_move_time 动态计算移动时长\n5. 复用 OperationRecording 的平台层（PlatformFactory 缓存）\n6. 运动状态检测由 PathFindingReco 在识别阶段完成\n\n**前置依赖**：\n- 前序识别器需返回 detail.direction\n- direction=\"centered\" 时表示目标已在屏幕中心死区内，跳过移动但仍执行 dodge/turn\n- 推荐前序识别器为 PathFindingReco，以使用 distance、lock_id、turn 坐标驱动的执行逻辑\n\n**字段列表**：\n\n| 字段 | 类型 | 默认值 | 说明 |\n| --- | --- | --- | --- |\n| `move_duration` | int | 500 | 无距离信息时的默认移动时长（ms） |\n| `move_duration_far` | int | 1500 | 远距离移动时长（ms），distance ≥ distance_far 时使用 |\n| `move_duration_near` | int | 300 | 近距离移动时长（ms），distance ≤ distance_near 时使用 |\n| `distance_far` | int | 200 | 远距离阈值（像素） |\n| `distance_near` | int | 50 | 近距离阈值（像素） |\n| `max_move_time` | int | 0 | 单次移动最大时长（ms），0 表示不限制 |\n| `dodge_at_start` | string | \"never\" | 闪避模式：`never` / `always` / `once_per_target` |\n| `dodge_direction` | string | \"forward\" | 闪避方向：`forward` / `backward` / `left` / `right` |\n| `enable_turning` | bool | true | 是否执行 Reco 建议的转向 |\n\n**参数示例**：\n```json\n{\n    \"move_duration\": 500,\n    \"move_duration_far\": 1500,\n    \"move_duration_near\": 300,\n    \"distance_far\": 200,\n    \"distance_near\": 50,\n    \"max_move_time\": 1000,\n    \"dodge_at_start\": \"once_per_target\",\n    \"dodge_direction\": \"forward\",\n    \"enable_turning\": true\n}\n```\n\n**算法说明**：\n- 当 detail.target.distance 存在且在 (distance_near, distance_far) 之间时，移动时长按线性插值计算\n- max_move_time > 0 时，实际移动时长不会超过此值\n- dodge_at_start=\"once_per_target\" 时，通过 detail.lock_id 判断同一目标是否已闪避过\n- enable_turning=false 时，即使 Reco 返回 turn_start/turn_end 也不执行转向\n- 当 distance 为 None 或 distance_far ≤ distance_near 时，回退到 move_duration"
+				"description": "PathFinderAction 自动寻路执行器参数\n\n**功能**：\n1. 根据识别结果按 dodge → turn → move 顺序执行动作\n2. 根据 lock_id 与 dodge_at_start 策略执行闪避\n3. 根据 turn_start/turn_end 与 enable_turning 执行转向\n4. 根据 target.distance 与 max_move_time 动态计算移动时长\n5. 复用 OperationRecording 的平台层（PlatformFactory 缓存）\n6. 运动状态检测由 PathFindingReco 在识别阶段完成\n\n**前置依赖**：\n- 前序识别器需返回 detail.direction\n- direction=\"centered\" 时表示目标已在屏幕中心死区内，跳过移动但仍执行 dodge/turn\n- 推荐前序识别器为 PathFindingReco，以使用 distance、lock_id、turn 坐标驱动的执行逻辑\n\n**字段列表**：\n\n| 字段 | 类型 | 默认值 | 说明 |\n| --- | --- | --- | --- |\n| `move_duration` | int | 500 | 无距离信息时的默认移动时长（ms） |\n| `move_duration_far` | int | 1500 | 远距离移动时长（ms），distance ≥ distance_far 时使用 |\n| `move_duration_near` | int | 300 | 近距离移动时长（ms），distance ≤ distance_near 时使用 |\n| `distance_far` | int | 200 | 远距离阈值（像素） |\n| `distance_near` | int | 50 | 近距离阈值（像素） |\n| `max_move_time` | int | 0 | 单次移动最大时长（ms），0 表示不限制 |\n| `dodge_at_start` | string | \"never\" | 闪避模式：`never` / `always` / `once_per_target` |\n| `dodge_direction` | string | \"backward\" | 闪避方向：`forward` / `backward` / `left` / `right` |\n| `dodge_follows_direction` | bool | true | 闪避方向是否跟随当前移动方向 |\n| `dodge_release_ms` | int | 50 | 闪避后释放所有按键的等待时长（毫秒） |\n| `move_start_delay_ms` | int | 300 | move 开始前的额外等待时长（毫秒），给游戏反应时间 |\n| `enable_turning` | bool | true | 是否执行 Reco 建议的转向 |\n| `turn_duration_ms` | int | 200 | 转向滑动持续时间（毫秒），0 用 platform 默认 |\n| `large_turn_release_ms` | int | 100 | 大幅转向（LARGE_TURN）前释放按键的等待时长（毫秒） |\n| `stuck_dodge_on_phase` | bool | true | Reco 判定卡住（state=\"stuck\"）时是否触发闪避 |\n\n**参数示例**：\n```json\n{\n    \"move_duration\": 500,\n    \"move_duration_far\": 1500,\n    \"move_duration_near\": 300,\n    \"distance_far\": 200,\n    \"distance_near\": 50,\n    \"max_move_time\": 1000,\n    \"dodge_at_start\": \"once_per_target\",\n    \"dodge_direction\": \"forward\",\n    \"enable_turning\": true\n}\n```\n\n**算法说明**：\n- 当 detail.target.distance 存在且在 (distance_near, distance_far) 之间时，移动时长按线性插值计算\n- max_move_time > 0 时，实际移动时长不会超过此值\n- dodge_at_start=\"once_per_target\" 时，通过 detail.lock_id 判断同一目标是否已闪避过\n- enable_turning=false 时，即使 Reco 返回 turn_start/turn_end 也不执行转向\n- 当 distance 为 None 或 distance_far ≤ distance_near 时，回退到 move_duration"
 			}
 		}
 	},
@@ -77,13 +77,47 @@
 						"left",
 						"right"
 					],
-					"default": "forward",
-					"description": "闪避方向，默认 forward\n\n可选值：forward / backward / left / right"
+					"default": "backward",
+					"description": "闪避方向，默认 backward\n\n可选值：forward / backward / left / right\n- dodge_follows_direction=true 且 direction!=centered 时忽略此参数\n- direction=centered 或 dodge_follows_direction=false 时使用此值\n- 默认为 backward 是因为游戏单点闪避（无摇杆方向）会触发角色向后翻滚"
 				},
 				"enable_turning": {
 					"type": "boolean",
 					"default": true,
 					"description": "是否执行 Reco 建议的转向，默认 true\n\n执行侧保险开关：false 时即使 Reco 返回 turn_start/turn_end 也不执行转向"
+				},
+				"dodge_follows_direction": {
+					"type": "boolean",
+					"default": true,
+					"description": "闪避方向是否跟随当前移动方向，默认 true\n\ntrue 时根据 detail.direction 选择对应方向（forward→右、right→后、backward→左、left→前）；false 时使用 dodge_direction 固定值"
+				},
+				"dodge_release_ms": {
+					"type": "integer",
+					"default": 50,
+					"minimum": 0,
+					"description": "闪避后释放所有按键的等待时长（毫秒），默认 50\n\n设为 0 立即释放，避免阻塞后续 move/turn"
+				},
+				"move_start_delay_ms": {
+					"type": "integer",
+					"default": 300,
+					"minimum": 0,
+					"description": "move 开始前的额外等待时长（毫秒），默认 300\n\n用于在 dodge/turn 完成后给游戏反应时间（如 dodge 动画结束）；0 表示不等待"
+				},
+				"turn_duration_ms": {
+					"type": "integer",
+					"default": 200,
+					"minimum": 0,
+					"description": "转向滑动持续时间（毫秒），默认 200\n\n显式控制 platform.turn 的 duration 参数；设为 0 则使用 platform 默认值（70ms）"
+				},
+				"large_turn_release_ms": {
+					"type": "integer",
+					"default": 100,
+					"minimum": 0,
+					"description": "大幅转向（LARGE_TURN）前释放所有按键的等待时长（毫秒），默认 100\n\n借鉴 MaaEnd MapTracker：大转向前先释放按键避免滑动冲突；设为 0 跳过释放"
+				},
+				"stuck_dodge_on_phase": {
+					"type": "boolean",
+					"default": true,
+					"description": "Reco 判定卡住（state=\"stuck\"）时是否触发闪避，默认 true\n\n卡住阶段除常规闪避外额外触发一次 dodge，尝试脱离卡死状态"
 				}
 			},
 			"additionalProperties": false

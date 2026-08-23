@@ -197,11 +197,12 @@ class PathFinderAction(CustomAction):
             distance_near=param.get("distance_near", 50),
             max_move_time=param.get("max_move_time", 0),
             dodge_at_start=param.get("dodge_at_start", "never"),
-            dodge_direction=param.get("dodge_direction", "forward"),
+            dodge_direction=param.get("dodge_direction", "backward"),
             enable_turning=param.get("enable_turning", True),
             dodge_follows_direction=param.get("dodge_follows_direction", True),
             dodge_release_ms=param.get("dodge_release_ms", 50),
-            turn_duration_ms=param.get("turn_duration_ms", None),
+            move_start_delay_ms=param.get("move_start_delay_ms", 300),
+            turn_duration_ms=param.get("turn_duration_ms", 200),
             large_turn_release_ms=param.get("large_turn_release_ms", 100),
             stuck_dodge_on_phase=param.get("stuck_dodge_on_phase", True),
         )
@@ -319,8 +320,10 @@ class PathFinderAction(CustomAction):
                 platform.release_all()
 
         # 2. turn
+        # 死区内不转向：避免中心附近抖动把目标推到屏幕外
         if (
             param.enable_turning
+            and direction != "centered"
             and isinstance(turn_start, (list, tuple))
             and isinstance(turn_end, (list, tuple))
             and len(turn_start) == 2
@@ -329,6 +332,22 @@ class PathFinderAction(CustomAction):
             if context.tasker.stopping:
                 return False
 
+            sx, sy = int(turn_start[0]), int(turn_start[1])
+            ex, ey = int(turn_end[0]), int(turn_end[1])
+            logger.debug(
+                "[PathFinderAction] turn execute: grade=%s phase=%s "
+                "swipe=(%d,%d)->(%d,%d) vec=(%+d,%+d) duration=%s",
+                turn_grade,
+                phase.value if phase else None,
+                sx,
+                sy,
+                ex,
+                ey,
+                ex - sx,
+                ey - sy,
+                param.turn_duration_ms,
+            )
+
             # 大幅转向：先释放按键，避免方向键与滑动冲突
             if turn_grade == "large_turn" and param.large_turn_release_ms > 0:
                 platform.release_all()
@@ -336,26 +355,49 @@ class PathFinderAction(CustomAction):
 
             if param.turn_duration_ms is not None and param.turn_duration_ms > 0:
                 platform.turn(
-                    int(turn_start[0]),
-                    int(turn_start[1]),
-                    int(turn_end[0]),
-                    int(turn_end[1]),
+                    sx,
+                    sy,
+                    ex,
+                    ey,
                     duration=param.turn_duration_ms / 1000.0,
                 )
             else:
                 platform.turn(
-                    int(turn_start[0]),
-                    int(turn_start[1]),
-                    int(turn_end[0]),
-                    int(turn_end[1]),
+                    sx,
+                    sy,
+                    ex,
+                    ey,
                 )
 
         # 3. move
+        # 死区内兜底：direction=centered 且 distance=None（无法判断到达距离）
+        # 时仍需前进，否则目标在死区内会卡住不动。
+        # distance 有效且 direction=centered 表示已到达目标，跳过 move。
         if direction == "centered":
-            return True
+            if distance is not None:
+                logger.debug(
+                    "[PathFinderAction] skip move: direction=centered, distance=%s (arrived)",
+                    distance,
+                )
+                return True
+            logger.debug(
+                "[PathFinderAction] centered but distance missing: fallback forward move "
+                "duration_ms=%d",
+                param.move_duration,
+            )
+            if context.tasker.stopping:
+                return False
+            # 兜底前进：默认时长，避免在死区内卡住
+            return platform.move("forward", param.move_duration / 1000.0)
 
         if context.tasker.stopping:
             return False
+
+        # move 开始前的额外等待，确保 dodge/turn 动作完全结束、按键状态稳定
+        if param.move_start_delay_ms > 0:
+            time.sleep(param.move_start_delay_ms / 1000.0)
+            if context.tasker.stopping:
+                return False
 
         move_duration = self._resolve_duration(distance, param)
         return platform.move(direction, move_duration)

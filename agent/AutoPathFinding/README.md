@@ -153,6 +153,7 @@ assets/resource/image/
 | `max_turn_distance`            | `int`            | `400`                | 最长转向滑动距离（像素）                                                      |
 | `distance_missing_turn_scale`  | `float`          | `0.5`                | 连续未识别到距离时转向滑动距离衰减系数                                        |
 | `direction_hysteresis`          | `float`          | `15.0`               | 方向分箱的角度滞回阈值（度），抑制 45° 边界方向抖动；设为 0 关闭滞回          |
+| `turn_speed_factor`             | `float`          | `0.7`                | 滑动距离相对 `offset_norm` 的比例（< 1.0 保证滑动后目标朝中心移动但不越过中心到反方向）；动态自适应算法的核心参数 |
 | `enable_locked_fast_path`       | `bool`           | `true`               | 锁定态下使用小 ROI 快速通道；关闭后每帧全 ROI 扫描                            |
 | `lock_roi_padding`              | `int`            | `200`                | 锁定态 fast_path ROI 相对 bbox 的额外 padding（像素）                          |
 | `fast_path_max_turn_padding`    | `int`            | `400`                | 距离缺失时 fast_path ROI 的额外 padding，避免转向后目标移出视野              |
@@ -210,11 +211,12 @@ assets/resource/image/
 | `distance_near`      | `int`  | `50`        | 近距离阈值（像素）                                         |
 | `max_move_time`      | `int`  | `0`         | 单次移动最大时长（毫秒），`0` 表示不限制                   |
 | `dodge_at_start`     | `str`  | `"never"`   | 移动开始时闪避模式：`never` / `always` / `once_per_target` |
-| `dodge_direction`    | `str`  | `"forward"` | 闪避方向：`forward` / `backward` / `left` / `right`        |
+| `dodge_direction`    | `str`  | `"backward"` | 闪避方向：`forward` / `backward` / `left` / `right`；游戏单点闪避默认向后翻滚 |
 | `enable_turning`     | `bool` | `true`      | 是否执行 Reco 建议的转向（执行侧保险开关）                 |
 | `dodge_follows_direction` | `bool` | `true`   | 闪避方向是否跟随本帧移动方向；true 时忽略 `dodge_direction` |
 | `dodge_release_ms`   | `int`  | `50`       | dodge 与 move 之间的短暂 release 间隔（毫秒），0 表示不释放 |
-| `turn_duration_ms`   | `int \| None` | `None` | 显式控制 `platform.turn` 滑动持续时间（毫秒），None 用 platform 默认 |
+| `move_start_delay_ms` | `int` | `300`      | move 开始前的额外等待时长（毫秒），给游戏反应时间           |
+| `turn_duration_ms`   | `int`         | `200`  | 显式控制 `platform.turn` 滑动持续时间（毫秒），0 用 platform 默认 |
 | `large_turn_release_ms` | `int`      | `100`  | 大幅转向（LARGE_TURN）前先释放按键的时长（毫秒），0 表示不释放；借鉴 MapTracker `rotation_upper_threshold` 行为 |
 | `stuck_dodge_on_phase` | `bool`      | `true` | 当 Reco 返回 `phase="stuck"` 时是否额外触发 dodge（借鉴 MapTracker `stuckThreshold` 行为） |
 
@@ -943,6 +945,10 @@ PathFindingReco 返回的 `detail` 字典包含 `hit_node` 字段，可与 IfEls
 | 到达阈值设置不当导致提前结束 | 低   | 中   | 按实际游戏距离调整 `arrival_distance`                |
 | 两个同名目标相邻导致跟踪错   | 低   | 中   | IOU + 中心容差 + 置信度三重校验                      |
 | 连续转向未识别距离导致停留   | 低   | 中   | `max_turn_attempts` 上限，超限时直接移动             |
+| **死区内转向抖动推到屏幕外** | 中   | 高   | Reco 与 Action **双重防护**：`_calculate_turn(direction="centered")` 直接返回 `(None, None, None)`；`_execute_sequence` 同样跳过 turn。目标已居中时绝不滑动视角。 |
+| **滑动方向反了，目标被推到屏幕外** | 中   | 高   | **根因**：原版 swipe `start → end` 方向 = +offset（指向目标方向），但移动端 swipe 后屏幕上目标位置变化 = swipe 向量本身，导致目标被推离屏幕中心。**修复**：`compute_turn_coordinates` 改用 `swipe = end - start = -offset`，使目标朝屏幕中心移动。Reco 与 Action 增加 `logger.debug` 输出滑动向量与期望向量对照，便于现场排查。 |
+| **direction=centered 且 distance=None 时角色原地不动** | 中   | 高   | **根因**：原版 Action 在 `direction == "centered"` 时直接 return，不调 move；但 distance 缺失时本应继续前进靠近目标（distance OCR 失败 ≠ 已到达）。**修复**：centered + `distance is not None` → 跳过 move（视为已到达）；centered + `distance is None` → 兜底前进 `move_duration` 时长。 |
+| **滑动距离过大把目标推过中心** | 中   | 高   | **根因**：原版 `compute_turn_distance` 在 [min=50, max=400] 之间按 offset_norm 线性插值，大偏移时滑动 200-400px（屏幕尺寸 720p 下相当于旋转视角 60°-90°），导致目标被推到屏幕反方向（如 target 在屏幕下方被推到屏幕更下方）。**修复**：滑动距离改为 `offset_norm * turn_speed_factor`（默认 0.7），与目标偏移成正比，保证滑动后目标朝中心移动而不越过中心。`max_turn_distance` 仍作为上限保护。 |
 
 ---
 
